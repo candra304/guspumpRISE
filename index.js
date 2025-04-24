@@ -1,23 +1,23 @@
+apakah kedua script ini memiliki kesamaan 
+
+
+
 const ethers = require("ethers");
 const fs = require("fs");
 const prompt = require("prompt-sync")();
 const { HttpsProxyAgent } = require("https-proxy-agent");
-const chalk = require("chalk"); // Pastikan chalk sudah diinstall
+const chalk = require("chalk");
 
-// Banner
 function showBanner() {
   console.clear();
   console.log(chalk.magentaBright(`
-========================================
-  █████╗ ██╗   ██╗████████╗ ██████╗ 
- ██╔══██╗██║   ██║╚══██╔══╝██╔═══██╗
- ███████║██║   ██║   ██║   ██║   ██║
- ██╔══██║██║   ██║   ██║   ██║   ██║
- ██║  ██║╚██████╔╝   ██║   ╚██████╔╝
- ╚═╝  ╚═╝ ╚═════╝    ╚═╝    ╚═════╝ 
-SAT SET 
-                           [by Chandra]
-========================================
+█████╗ ██╗   ██╗████████╗ ██████╗
+██╔══██╗██║   ██║╚══██╔══╝██╔═══██╗
+███████║██║   ██║   ██║   ██║   ██║
+██╔══██║██║   ██║   ██║   ██║   ██║
+██║  ██║╚██████╔╝   ██║   ╚██████╔╝
+╚═╝  ╚═╝ ╚═════╝    ╚═╝    ╚═════╝
+SAT SET [by Chandra]
 `));
 }
 
@@ -30,7 +30,7 @@ const USDC = "0x8A93d247134d91e0de6f96547cB0204e5BE8e5D8";
 const DODO_ROUTER = "0x8c6DbF95448AcbcBb1c3D6E9b3b9ceF7E6fbAb00";
 
 const GAS_OPTIONS = {
-  gasPrice: ethers.utils.parseUnits("0.0002", "gwei"),
+  gasPrice: ethers.utils.parseUnits("1", "gwei"),
   gasLimit: 300000
 };
 
@@ -79,12 +79,14 @@ async function unwarpWETH(wallet) {
   console.log("⚛️  Unwarp WETH ke ETH sukses");
 }
 
-async function swapWETHtoUSDC(wallet) {
+async function swapWETHtoUSDC(wallet, amountOverride = null) {
   const weth = new ethers.Contract(WETH, WETH_ABI, wallet);
   const dodo = new ethers.Contract(DODO_ROUTER, DODO_ABI, wallet);
 
   const balance = await weth.balanceOf(wallet.address);
-  const amountIn = balance.mul(30).div(100); // 30%
+  const amountIn = amountOverride
+    ? ethers.utils.parseEther(amountOverride)
+    : balance.mul(30).div(100);
 
   if (amountIn.lt(ethers.utils.parseEther("0.00001"))) {
     return console.log("❌  Saldo WETH terlalu kecil untuk swap");
@@ -93,30 +95,40 @@ async function swapWETHtoUSDC(wallet) {
   await weth.approve(DODO_ROUTER, amountIn, GAS_OPTIONS);
 
   const deadline = Math.floor(Date.now() / 1000) + 60;
-
   const tx = await dodo.externalSwap(
     WETH, USDC, amountIn, 0,
     ethers.constants.AddressZero, wallet.address, deadline,
     GAS_OPTIONS
   );
-  await tx.wait();
+
+  console.log(tx.hash);
+
+  const receipt = await tx.wait();
+  console.log(receipt.status);
+
   console.log(`✅  Swap ${ethers.utils.formatEther(amountIn)} WETH to USDC sukses`);
 }
 
-async function swapUSDCtoWETH(wallet) {
+async function swapUSDCtoWETH(wallet, amountOverride = null) {
   const usdc = new ethers.Contract(USDC, USDC_ABI, wallet);
   const dodo = new ethers.Contract(DODO_ROUTER, DODO_ABI, wallet);
 
   const balance = await usdc.balanceOf(wallet.address);
-  const amountIn = balance.mul(30).div(100); // 30%
+  const amountIn = amountOverride
+    ? ethers.utils.parseUnits(amountOverride, 6)
+    : balance.mul(30).div(100);
 
   console.log(`⚛️  Saldo USDC: ${ethers.utils.formatUnits(balance, 6)}`);
+  console.log("⚙️   Menjalankan swap USDC ke WETH...");
+  console.log("AmountIn:", ethers.utils.formatUnits(amountIn, 6));
 
   if (amountIn.lt(ethers.utils.parseUnits("0.5", 6))) {
     return console.log("❌  Saldo USDC terlalu kecil untuk swap");
   }
 
-  await usdc.approve(DODO_ROUTER, amountIn, GAS_OPTIONS);
+  const approveTx = await usdc.approve(DODO_ROUTER, amountIn, GAS_OPTIONS);
+  await approveTx.wait();
+  console.log("✅  Approve berhasil");
 
   const deadline = Math.floor(Date.now() / 1000) + 60;
 
@@ -125,8 +137,13 @@ async function swapUSDCtoWETH(wallet) {
     ethers.constants.AddressZero, wallet.address, deadline,
     GAS_OPTIONS
   );
-  await tx.wait();
-  console.log(`✅  Swap ${ethers.utils.formatUnits(amountIn, 6)} USDC to WETH sukses`);
+
+  console.log(tx.hash);
+
+  const receipt = await tx.wait();
+  console.log(receipt.status);
+
+  console.log(`✅  Swap ${ethers.utils.formatUnits(amountIn, 6)} USDC ke WETH sukses`);
 }
 
 async function cekSaldo(wallet, index) {
@@ -136,16 +153,27 @@ async function cekSaldo(wallet, index) {
   console.log(`💳 Akun ${index + 1}: ETH: ${ethers.utils.formatEther(ethBalance)} | WETH: ${ethers.utils.formatUnits(wethBalance, 18)}`);
 }
 
-// === MENU CLI ===
 showBanner();
 console.log("=== PILIH FITUR YANG INGIN DIJALANKAN ===");
 console.log("1. Wrap ETH ke WETH");
-console.log("2. Swap WETH ke USDC (30%)");
-console.log("3. Swap USDC ke WETH (30%)");
+console.log("2. Swap WETH ke USDC (input jumlah)");
+console.log("3. Swap USDC ke WETH (input jumlah)");
 console.log("4. Unwarp WETH ke ETH");
 console.log("5. Cek saldo semua akun");
 console.log("6. Jalankan semua fitur otomatis");
 const pilihan = prompt("Masukkan pilihan (1-6): ");
+
+let jumlahSwapWETH = null;
+let jumlahSwapUSDC = null;
+
+if (["2", "3", "6"].includes(pilihan)) {
+  if (["2", "6"].includes(pilihan)) {
+    jumlahSwapWETH = prompt("Masukkan jumlah WETH yang ingin di-swap ke USDC (dalam ETH, misal: 0.01): ");
+  }
+  if (["3", "6"].includes(pilihan)) {
+    jumlahSwapUSDC = prompt("Masukkan jumlah USDC yang ingin di-swap ke WETH (dalam USDC, misal: 10): ");
+  }
+}
 
 (async () => {
   for (let i = 0; i < akunList.length; i++) {
@@ -161,10 +189,10 @@ const pilihan = prompt("Masukkan pilihan (1-6): ");
           await wrapETH(wallet);
           break;
         case "2":
-          await swapWETHtoUSDC(wallet);
+          await swapWETHtoUSDC(wallet, jumlahSwapWETH);
           break;
         case "3":
-          await swapUSDCtoWETH(wallet);
+          await swapUSDCtoWETH(wallet, jumlahSwapUSDC);
           break;
         case "4":
           await unwarpWETH(wallet);
@@ -173,9 +201,9 @@ const pilihan = prompt("Masukkan pilihan (1-6): ");
           await cekSaldo(wallet, i);
           break;
         case "6":
-          await swapUSDCtoWETH(wallet);
+          await swapUSDCtoWETH(wallet, jumlahSwapUSDC);
           await delay(2000 + Math.random() * 3000);
-          await swapWETHtoUSDC(wallet);
+          await swapWETHtoUSDC(wallet, jumlahSwapWETH);
           await delay(2000 + Math.random() * 3000);
           await unwarpWETH(wallet);
           break;
@@ -189,3 +217,9 @@ const pilihan = prompt("Masukkan pilihan (1-6): ");
     }
   }
 })();
+
+
+
+
+
+
