@@ -15,8 +15,8 @@ SAT SET
 ========================================
 === PILIH FITUR YANG INGIN DIJALANKAN ===
 1. Wrap ETH ke WETH
-2. Swap WETH ke USDC (30%)
-3. Swap USDC ke WETH (30%)
+2. Swap WETH ke USDC 
+3. Swap USDC ke WETH 
 4. Unwarp WETH ke ETH
 5. Cek saldo semua akun
 6. Jalankan semua fitur otomatis
