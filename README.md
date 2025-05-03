@@ -48,15 +48,16 @@ npm install
 # jalan kan 
 ```
 node index.js
-   
-   
+
+```
+## catatan 
+kalo mau ubah amount eth yg di wrap, ubh aja nominal nya di sini 
 
 
+async function wrapETH(wallet) {
+  const weth = new ethers.Contract(WETH, WETH_ABI, wallet);
+  const tx = await weth.deposit({ value: ethers.utils.parseEther("0.0001"), ...GAS_OPTIONS });
+  await tx.wait();
+  
 
-
-
-
-
-
-
-
+( bagian 0.0001 ke jumlah yg di inginkan)
