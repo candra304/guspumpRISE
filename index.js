@@ -1,7 +1,3 @@
-apakah kedua script ini memiliki kesamaan 
-
-
-
 const ethers = require("ethers");
 const fs = require("fs");
 const prompt = require("prompt-sync")();
